@@ -223,6 +223,12 @@ body.offline .net{display:inline}
 .inb .who time{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
 .inb ul{list-style:none;margin:8px 0;padding:0;font-size:14px}
 .inb li{display:flex;justify-content:space-between;gap:10px;padding:2px 0}
+.inb li{align-items:center;padding:4px 0}
+.inb .stp{display:flex;align-items:center;gap:6px}
+.inb .stp button{width:34px;height:34px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line);font-size:18px;font-weight:700;line-height:1}
+.inb .stp output{min-width:20px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums}
+.inb select.field{padding:9px 12px;margin:2px 0 10px}
+.inb .itot{display:flex;justify-content:space-between;font-weight:700;margin-bottom:10px}
 .inb .ba{display:grid;grid-template-columns:1fr 2fr;gap:8px}
 .inb .ba .primary{padding:11px}
 .inb .ba .ghost{padding:11px}
@@ -820,7 +826,7 @@ body.offline .net{display:inline}
     if (m === "bulan") loadMonth(); else renderRekap();
   }
 
-  function renderAll() { renderKasir(); renderMenu(); renderHead(); renderRekap(); renderBiaya(); }
+  function renderAll() { renderKasir(); renderMenu(); renderHead(); renderRekap(); renderBiaya(); if (typeof renderInbox === "function" && inbox) renderInbox(); }
 
   function toast(msg) {
     var el = $("#toast"); el.textContent = msg; el.classList.add("show");
@@ -1033,15 +1039,25 @@ body.offline .net{display:inline}
       o.start(); o.stop(c.currentTime + .25); setTimeout(function () { c.close(); }, 400);
     } catch (e) { /* abaikan */ }
   }
+  var inbEdit = {};
+  function inbItems(p) {
+    if (!inbEdit[p.id]) inbEdit[p.id] = (p.items || []).map(function (i) { return { id: String(i.id), n: String(i.n || "?"), q: Math.max(0, Math.min(99, Math.floor(Number(i.q) || 0))) }; }).filter(function (i) { return i.q > 0; });
+    return inbEdit[p.id];
+  }
+  function menuPrice(id) { var m = menu.filter(function (x) { return x.id === id; })[0]; return m ? m.harga : 0; }
   function renderInbox() {
     var el = $("#inbox");
     el.hidden = !inbox.length;
     document.title = (inbox.length ? "(" + inbox.length + ") " : "") + "Kasir Nongki Brother";
     if (!inbox.length) { el.innerHTML = ""; return; }
+    var opts = '<option value="">+ Tambah item…</option>' + menu.map(function (m) { return '<option value="' + esc(m.id) + '">' + esc(m.nama) + " · " + rp(m.harga) + "</option>"; }).join("");
     el.innerHTML = '<h3>Pesanan dari pelanggan<span class="badge">' + inbox.length + "</span></h3>" + inbox.map(function (p) {
-      var t = p.t && p.t.toDate ? p.t.toDate().toISOString() : "";
-      var its = (p.items || []).map(function (i) { return "<li><span>" + esc(i.n || "?") + "</span><span>×" + (Number(i.q) || 0) + "</span></li>"; }).join("");
-      return '<div class="inb"><div class="who"><b>' + esc(p.mejaNama || "Meja ?") + (p.nama ? " · " + esc(p.nama) : "") + "</b><time>" + fmtTime(t) + "</time></div><ul>" + its + '</ul><div class="ba"><button type="button" class="ghost" data-act="ptolak" data-id="' + esc(p.id) + '">Tolak</button><button type="button" class="primary" data-act="pterima" data-id="' + esc(p.id) + '">Terima ke meja</button></div></div>';
+      var t = p.t && p.t.toDate ? p.t.toDate().toISOString() : "", its = inbItems(p), tot = 0;
+      var rows = its.map(function (i) {
+        var m = menu.filter(function (x) { return x.id === i.id; })[0]; tot += (m ? m.harga : 0) * i.q;
+        return "<li><span>" + esc(m ? m.nama : i.n) + '</span><div class="stp"><button type="button" data-act="idec" data-p="' + esc(p.id) + '" data-id="' + esc(i.id) + '" aria-label="Kurangi">−</button><output>' + i.q + '</output><button type="button" data-act="iinc" data-p="' + esc(p.id) + '" data-id="' + esc(i.id) + '" aria-label="Tambah">+</button></div></li>';
+      }).join("");
+      return '<div class="inb"><div class="who"><b>' + esc(p.mejaNama || "Meja ?") + (p.nama ? " · " + esc(p.nama) : "") + "</b><time>" + fmtTime(t) + "</time></div><ul>" + (rows || '<li class="muted">Semua item dibuang</li>') + '</ul><select class="field" data-act="iadd" data-p="' + esc(p.id) + '" aria-label="Tambah item">' + opts + '</select><div class="itot"><span>Total</span><span>' + rp(tot) + '</span></div><div class="ba"><button type="button" class="ghost" data-act="ptolak" data-id="' + esc(p.id) + '">Tolak</button><button type="button" class="primary" data-act="pterima" data-id="' + esc(p.id) + '"' + (its.length ? "" : " disabled") + '>Terima ke meja</button></div></div>';
     }).join("");
   }
   function startInbox() {
@@ -1063,7 +1079,7 @@ body.offline .net{display:inline}
     var mj = mejas.filter(function (m) { return m.id === p.meja; })[0];
     if (!mj) { toast("Meja " + (p.mejaNama || "") + " sudah tidak ada. Tolak atau tambah mejanya lagi."); return; }
     var lines = [], skipped = 0;
-    (p.items || []).forEach(function (i) {
+    inbItems(p).forEach(function (i) {
       var m = menu.filter(function (x) { return x.id === i.id; })[0], q = Math.max(0, Math.min(99, Math.floor(Number(i.q) || 0)));
       if (m && q) lines.push({ id: m.id, q: q }); else skipped++;
     });
@@ -1075,16 +1091,35 @@ body.offline .net{display:inline}
     open[target] = lines;
     sel = mj.id; selBil = target; sheet = false; gabung = false; $("#o-bayar").value = "";
     markDirty(); renderKasir();
+    delete inbEdit[id];
     db.doc("pesanan/" + id).update({ status: "diterima" }).catch(failed);
     toast("Masuk ke " + mj.nama + (skipped ? " (" + skipped + " item dilewati)" : ""));
     setTab("kasir");
   }
   function rejectOrder(id) {
+    delete inbEdit[id];
     db.doc("pesanan/" + id).update({ status: "ditolak" }).catch(failed);
   }
   $("#inbox").addEventListener("click", function (e) {
     var b = e.target.closest("button[data-act]"); if (!b) return;
-    if (b.dataset.act === "pterima") acceptOrder(b.dataset.id); else rejectOrder(b.dataset.id);
+    var act = b.dataset.act;
+    if (act === "pterima") acceptOrder(b.dataset.id);
+    else if (act === "ptolak") rejectOrder(b.dataset.id);
+    else if (act === "iinc" || act === "idec") {
+      var arr = inbEdit[b.dataset.p]; if (!arr) return;
+      var it = arr.filter(function (x) { return x.id === b.dataset.id; })[0]; if (!it) return;
+      it.q += act === "iinc" ? 1 : -1; if (it.q > 99) it.q = 99;
+      if (it.q <= 0) inbEdit[b.dataset.p] = arr.filter(function (x) { return x !== it; });
+      renderInbox();
+    }
+  });
+  $("#inbox").addEventListener("change", function (e) {
+    var sl = e.target.closest("select[data-act='iadd']"); if (!sl || !sl.value) return;
+    var arr = inbEdit[sl.dataset.p]; if (!arr) return;
+    var m = menu.filter(function (x) { return x.id === sl.value; })[0]; if (!m) return;
+    var it = arr.filter(function (x) { return x.id === m.id; })[0];
+    if (it) it.q = Math.min(99, it.q + 1); else arr.push({ id: m.id, n: m.nama, q: 1 });
+    renderInbox();
   });
 
   /* ---------- QR meja ---------- */
