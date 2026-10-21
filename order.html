@@ -71,6 +71,20 @@ label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:18p
 .mejas{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .mejas button{padding:12px 16px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font:700 16px/1 var(--f-display)}
 .err{color:var(--danger);margin-top:10px}
+.vt{display:block;font-size:13px;font-weight:400;color:var(--muted);overflow-wrap:anywhere}
+.cnt{display:block;font-size:13px;color:var(--accent-ink);font-weight:600}
+.modal{position:fixed;inset:0;z-index:90;background:rgb(0 0 0 / .55);display:flex;align-items:flex-end;justify-content:center}
+.optcard{width:100%;max-width:640px;max-height:92vh;overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:18px 18px 0 0;padding:18px 16px calc(16px + env(safe-area-inset-bottom,0px))}
+.optcard h2{font:800 20px/1.2 var(--f-display)}
+.og{margin-top:14px}
+.og label{margin:0 0 6px}
+.ochips{display:flex;flex-wrap:wrap;gap:8px}
+.oc{padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);font-weight:600}
+.oc small{margin-left:6px;color:var(--muted);font-weight:500}
+.oc[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.oc[aria-pressed="true"] small{color:var(--on-accent)}
+.sum li{align-items:center}
+.sum .stp{flex:none}
 </style>
 </head>
 <body>
@@ -109,6 +123,8 @@ label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:18p
   <section id="s-fail" hidden><p class="muted" style="margin-top:24px" id="fail-msg"></p></section>
 </main>
 
+<div class="modal" id="opt" hidden><div class="optcard" id="opt-body" role="dialog" aria-modal="true"></div></div>
+
 <div class="bar" id="bar" hidden><div class="in"><button type="button" class="primary" id="next">Lihat pesanan</button></div></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -122,7 +138,7 @@ label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:18p
   var nf = new Intl.NumberFormat("id-ID");
   var rp = function (n) { return "Rp " + nf.format(Math.round(n || 0)); };
   var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
-  var db, auth, menu = [], mejas = [], meja = null, cart = {}, unStatus = null, sending = false;
+  var db, auth, menu = [], mejas = [], meja = null, cart = [], unStatus = null, sending = false;
 
   function show(id) {
     ["load", "pick", "menu", "review", "status", "fail"].forEach(function (k) { $("#s-" + k).hidden = k !== id && !(id === "menu" && false); });
@@ -135,17 +151,28 @@ label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:18p
   function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* abaikan */ } }
 
-  function count() { return Object.keys(cart).reduce(function (a, k) { return a + cart[k]; }, 0); }
-  function total() { return menu.reduce(function (a, m) { return a + (cart[m.id] || 0) * m.harga; }, 0); }
+  function lkey(id, o, c) { return id + "|" + o.map(function (x) { return x.g + ":" + x.n; }).join(",") + "|" + c; }
+  function sumH(o) { return o.reduce(function (a, x) { return a + x.h; }, 0); }
+  function vtext(o) { return o.map(function (x) { return x.n; }).join(", "); }
+  function byId(id) { return menu.filter(function (m) { return m.id === id; })[0]; }
+  function count() { return cart.reduce(function (a, l) { return a + l.q; }, 0); }
+  function unit(l) { var m = byId(l.id); return m ? m.harga + sumH(l.o) : 0; }
+  function total() { return cart.reduce(function (a, l) { return a + unit(l) * l.q; }, 0); }
+  function qtyOf(id) { return cart.reduce(function (a, l) { return a + (l.id === id ? l.q : 0); }, 0); }
+  function addLine(id, o, c, d) {
+    var k = lkey(id, o, c), e = cart.filter(function (l) { return lkey(l.id, l.o, l.c) === k; })[0];
+    if (e) { e.q += d; if (e.q > 20) e.q = 20; if (e.q <= 0) cart = cart.filter(function (l) { return l !== e; }); }
+    else if (d > 0) cart.push({ id: id, q: d, o: o, c: c });
+  }
   function renderMenu() {
     var cats = [];
     menu.forEach(function (m) { if (cats.indexOf(m.kat) < 0) cats.push(m.kat); });
     $("#menu").innerHTML = cats.map(function (c) {
       return '<h2 class="grp">' + esc(c) + "</h2>" + menu.filter(function (m) { return m.kat === c; }).map(function (m) {
-        var q = cart[m.id] || 0;
-        return '<div class="item"><div><b>' + esc(m.nama) + '</b><span class="pr">' + rp(m.harga) + '</span></div><div class="stp">' +
-          (q ? '<button type="button" data-d="-1" data-id="' + esc(m.id) + '" aria-label="Kurangi ' + esc(m.nama) + '">−</button><output>' + q + '</output><button type="button" data-d="1" data-id="' + esc(m.id) + '" aria-label="Tambah ' + esc(m.nama) + '">+</button>'
-            : '<button type="button" class="add" data-d="1" data-id="' + esc(m.id) + '">Tambah</button>') + "</div></div>";
+        var q = qtyOf(m.id), id = esc(m.id), ctl;
+        if (m.opsi.length) ctl = '<button type="button" class="stp-add add" data-pick="' + id + '">Pilih</button>';
+        else ctl = q ? '<button type="button" data-d="-1" data-id="' + id + '" aria-label="Kurangi ' + esc(m.nama) + '">−</button><output>' + q + '</output><button type="button" data-d="1" data-id="' + id + '" aria-label="Tambah ' + esc(m.nama) + '">+</button>' : '<button type="button" class="add" data-d="1" data-id="' + id + '">Tambah</button>';
+        return '<div class="item"><div><b>' + esc(m.nama) + '</b><span class="pr">' + rp(m.harga) + (m.opsi.length ? " · ada pilihan" : "") + "</span>" + (m.opsi.length && q ? '<span class="cnt">' + q + " di keranjang</span>" : "") + '</div><div class="stp">' + ctl + "</div></div>";
       }).join("");
     }).join("");
     var n = count(), nx = $("#next");
@@ -153,18 +180,63 @@ label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:18p
     nx.textContent = n ? "Lihat pesanan · " + n + " item · " + rp(total()) : "Pilih menu dulu";
   }
   function renderReview() {
-    $("#rev").innerHTML = menu.filter(function (m) { return cart[m.id]; }).map(function (m) {
-      return "<li><span>" + esc(m.nama) + " ×" + cart[m.id] + "</span><span>" + rp(m.harga * cart[m.id]) + "</span></li>";
+    $("#rev").innerHTML = cart.map(function (l) {
+      var m = byId(l.id), k = esc(lkey(l.id, l.o, l.c)), det = (l.o.length ? vtext(l.o) : "") + (l.c ? (l.o.length ? " · " : "") + "“" + l.c + "”" : "");
+      return "<li><span>" + esc(m ? m.nama : "?") + (det ? '<span class="vt">' + esc(det) + "</span>" : "") + '<span class="vt">' + rp(unit(l)) + " × " + l.q + " = " + rp(unit(l) * l.q) + '</span></span><div class="stp"><button type="button" data-rd="-1" data-k="' + k + '" aria-label="Kurangi">−</button><output>' + l.q + '</output><button type="button" data-rd="1" data-k="' + k + '" aria-label="Tambah">+</button></div></li>';
     }).join("");
     $("#rev-t").textContent = rp(total());
+    $("#send").disabled = !cart.length;
   }
+  $("#rev").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-rd]"); if (!b) return;
+    var l = cart.filter(function (x) { return lkey(x.id, x.o, x.c) === b.dataset.k; })[0]; if (!l) return;
+    addLine(l.id, l.o, l.c, Number(b.dataset.rd));
+    if (!cart.length) { show("menu"); renderMenu(); return; }
+    renderReview();
+  });
   $("#menu").addEventListener("click", function (e) {
+    var pk = e.target.closest("button[data-pick]");
+    if (pk) { var m = byId(pk.dataset.pick); if (m) openOpt(m); return; }
     var b = e.target.closest("button[data-id]"); if (!b) return;
-    var id = b.dataset.id, q = (cart[id] || 0) + Number(b.dataset.d);
-    if (q > 20) q = 20;
-    if (q <= 0) delete cart[id]; else cart[id] = q;
+    addLine(b.dataset.id, [], "", Number(b.dataset.d));
     renderMenu();
   });
+
+  /* ---------- modal pilihan ---------- */
+  var optCtx = null;
+  function optSelected() {
+    var out = [];
+    optCtx.m.opsi.forEach(function (g) {
+      var n = optCtx.sel[g.g], p = n && g.pil.filter(function (x) { return x.n === n; })[0];
+      if (p) out.push({ g: g.g, n: p.n, h: p.h });
+    });
+    return out;
+  }
+  function openOpt(m) { optCtx = { m: m, sel: {}, c: "" }; renderOpt(); $("#opt").hidden = false; }
+  function closeOpt() { $("#opt").hidden = true; optCtx = null; }
+  function renderOpt() {
+    if (!optCtx) return;
+    var m = optCtx.m, o = optSelected(), miss = m.opsi.filter(function (g) { return g.wajib && !optCtx.sel[g.g]; });
+    $("#opt-body").innerHTML = "<h2>" + esc(m.nama) + '</h2><p class="muted">' + rp(m.harga) + "</p>" + m.opsi.map(function (g) {
+      return '<div class="og"><label>' + esc(g.g) + (g.wajib ? " (wajib pilih)" : " (boleh kosong)") + '</label><div class="ochips">' + g.pil.map(function (p) {
+        return '<button type="button" class="oc" data-g="' + esc(g.g) + '" data-n="' + esc(p.n) + '" aria-pressed="' + (optCtx.sel[g.g] === p.n) + '">' + esc(p.n) + (p.h ? "<small>+" + rp(p.h) + "</small>" : "") + "</button>";
+      }).join("") + "</div></div>";
+    }).join("") + '<div class="og"><label for="opt-c">Catatan (boleh kosong)</label><input class="field" id="opt-c" maxlength="60" placeholder="Contoh: kurang manis" value="' + esc(optCtx.c) + '" autocomplete="off" style="margin:0"></div><div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;margin-top:16px"><button type="button" class="ghost" data-oa="cancel">Batal</button><button type="button" class="primary" data-oa="ok"' + (miss.length ? " disabled" : "") + ">" + (miss.length ? "Pilih " + esc(miss[0].g) + " dulu" : "Tambah · " + rp(m.harga + sumH(o))) + "</button></div>";
+  }
+  $("#opt").addEventListener("click", function (e) {
+    if (!optCtx) return;
+    if (e.target === $("#opt")) { closeOpt(); return; }
+    var ci = $("#opt-c"); if (ci) optCtx.c = ci.value;
+    var ch = e.target.closest("button.oc");
+    if (ch) { var g = ch.dataset.g, n = ch.dataset.n, grp = optCtx.m.opsi.filter(function (x) { return x.g === g; })[0]; if (optCtx.sel[g] === n && !(grp && grp.wajib)) delete optCtx.sel[g]; else optCtx.sel[g] = n; renderOpt(); return; }
+    var oa = e.target.closest("button[data-oa]"); if (!oa) return;
+    if (oa.dataset.oa === "cancel") { closeOpt(); return; }
+    var m = optCtx.m, o = optSelected(), c = optCtx.c.trim().slice(0, 60);
+    closeOpt(); addLine(m.id, o, c, 1); renderMenu();
+  });
+  $("#opt").addEventListener("input", function (e) { if (optCtx && e.target.id === "opt-c") optCtx.c = e.target.value; });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && optCtx) closeOpt(); });
+
   $("#next").addEventListener("click", function () { if (!count()) return; renderReview(); $("#err").textContent = ""; show("review"); });
   $("#back").addEventListener("click", function () { show("menu"); renderMenu(); });
 
@@ -176,13 +248,13 @@ label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:18p
   $("#send").addEventListener("click", function () {
     if (sending || !count()) return;
     sending = true; $("#send").disabled = true; $("#err").textContent = "";
-    var items = menu.filter(function (m) { return cart[m.id]; }).map(function (m) { return { id: m.id, n: m.nama, q: cart[m.id] }; });
+    var items = cart.map(function (l) { var m = byId(l.id); return { id: l.id, n: m ? m.nama : "?", q: l.q, o: l.o.map(function (x) { return { g: x.g, n: x.n }; }), c: l.c }; });
     db.collection("pesanan").add({
       uid: auth.currentUser.uid, meja: meja.id, mejaNama: meja.nama, nama: $("#nama").value.trim().slice(0, 30),
       items: items, status: "baru", t: firebase.firestore.FieldValue.serverTimestamp()
     }).then(function (ref) {
       lsSet("nb-last", ref.id + "|" + Date.now());
-      cart = {}; watchStatus(ref.id);
+      cart = []; watchStatus(ref.id);
     }).catch(function (e) {
       console.error(e);
       $("#err").textContent = "Pesanan gagal terkirim. Cek sinyal lalu coba lagi, atau pesan langsung ke kasir.";
@@ -208,11 +280,18 @@ label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:18p
     show("menu"); renderMenu();
   });
 
+  function normOpsi(a) {
+    return (Array.isArray(a) ? a : []).map(function (g) {
+      if (!g || !g.g || !Array.isArray(g.pil)) return null;
+      var pil = g.pil.map(function (p) { return p && p.n ? { n: String(p.n).slice(0, 30), h: Math.max(0, Number(p.h) || 0) } : null; }).filter(Boolean);
+      return pil.length ? { g: String(g.g).slice(0, 24), wajib: !!g.wajib, pil: pil } : null;
+    }).filter(Boolean);
+  }
   function start() {
     var q = new URLSearchParams(location.search).get("meja");
     return Promise.all([db.doc("kasir/menu").get(), db.doc("kasir/meja").get()]).then(function (r) {
       var md = r[0].exists ? r[0].data() : null, jd = r[1].exists ? r[1].data() : null;
-      menu = ((md && md.items) || []).filter(function (x) { return x && x.nama; }).map(function (x) { return { id: String(x.id), nama: String(x.nama), harga: Math.max(0, Number(x.harga) || 0), kat: String(x.kat || "Lainnya") }; });
+      menu = ((md && md.items) || []).filter(function (x) { return x && x.nama; }).map(function (x) { return { id: String(x.id), nama: String(x.nama), harga: Math.max(0, Number(x.harga) || 0), kat: String(x.kat || "Lainnya"), opsi: normOpsi(x.opsi) }; });
       mejas = ((jd && jd.list) || []).filter(function (x) { return x && x.nama; }).map(function (x) { return { id: String(x.id), nama: String(x.nama) }; });
       if (!menu.length) { $("#where").textContent = ""; return fail("Menu belum siap. Silakan pesan langsung ke kasir."); }
       var last = (lsGet("nb-last") || "").split("|");
