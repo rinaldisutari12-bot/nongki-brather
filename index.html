@@ -275,6 +275,7 @@ body.offline .net{display:inline}
       <aside class="order" id="order" aria-label="Pesanan">
         <div class="order-head"><h2 id="o-title">Pesanan</h2><button type="button" class="ghost closeonly" id="btnClose">Kembali ke menu</button></div>
         <input class="field" id="o-nama" placeholder="Nama bil, misal: Andi (boleh kosong)" autocomplete="off" maxlength="30" aria-label="Nama bil">
+        <button type="button" class="ghost" id="btnGabung" hidden>Gabung bayar semua bil</button>
         <ul class="lines" id="lines"></ul>
         <div class="total"><span>Total</span><strong id="o-total">Rp 0</strong></div>
         <div>
@@ -419,7 +420,7 @@ body.offline .net{display:inline}
   var menu = SAMPLE.map(function (x) { return Object.assign({}, x); });
   var menuSaved = false, ready = false;
   var mejas = [{ id: "m1", nama: "Meja 1" }], open = {}, bils = [], names = {}, sel = "m1", selBil = "m1", dirty = false, dirtyVer = 0, openT = null, renameId = null;
-  var cat = "Semua", tab = "kasir", sheet = false, editId = null;
+  var gabung = false, cat = "Semua", tab = "kasir", sheet = false, editId = null;
   var todayKey = bizKey(new Date()), viewKey = todayKey, todayOrders = [], viewOrders = [];
   var unToday = null, unView = null, armed = null, armT = null, toastT = null;
   var rmode = "hari", monKey = todayKey.slice(0, 7), monDays = {}, monLoading = false, monError = false, monToken = 0;
@@ -473,6 +474,26 @@ body.offline .net{display:inline}
     }).filter(Boolean);
   }
   var sumLines = function (ls) { return ls.reduce(function (a, l) { return a + l.harga * l.q; }, 0); };
+  function isGab() { return gabung && billsWithItems(sel) > 1; }
+  function gLines() {
+    var out = [];
+    billIds(sel).forEach(function (id) {
+      (open[id] || []).forEach(function (o) {
+        var m = menu.filter(function (x) { return x.id === o.id; })[0];
+        if (m) out.push({ id: m.id, nama: m.nama, harga: m.harga, q: o.q, bil: billLabel(id) });
+      });
+    });
+    return out;
+  }
+  function mergeLines(ls) {
+    var r = [];
+    ls.forEach(function (l) {
+      var e = r.filter(function (x) { return x.id === l.id; })[0];
+      if (e) e.q += l.q; else r.push({ id: l.id, nama: l.nama, harga: l.harga, q: l.q });
+    });
+    return r;
+  }
+  function actLines() { return isGab() ? mergeLines(gLines()) : lines(); }
   function addItem(id) {
     var arr = cur().map(function (x) { return { id: x.id, q: x.q }; });
     var o = arr.filter(function (x) { return x.id === id; })[0];
@@ -497,17 +518,23 @@ body.offline .net{display:inline}
       delete open[id]; selBil = sel; markDirty(); renderKasir();
     } else setCur([]);
   }
+  function clearAll() {
+    $("#o-bayar").value = ""; sheet = false;
+    billIds(sel).forEach(function (b) { delete open[b]; delete names[b]; });
+    bils = bils.filter(function (b) { return b.meja !== sel; });
+    selBil = sel; gabung = false; markDirty(); renderKasir();
+  }
   function bayarVal() { var r = $("#o-bayar").value.replace(/\D/g, ""); return r === "" ? null : parseInt(r, 10); }
 
   function finish() {
-    var ls = lines(); if (!ls.length) return;
+    var gm = isGab(), ls = actLines(); if (!ls.length) return;
     var total = sumLines(ls), b = bayarVal(), bayar = b === null ? total : b;
     if (bayar < total) return;
     var now = new Date();
     if (bizKey(now) !== todayKey) rollDay();
     if (!todayReady) { toast("Tunggu sebentar, data hari ini masih dimuat"); return; }
     var o = {
-      id: uid(), t: now.toISOString(), jenis: sel === "bungkus" ? "bungkus" : "makan", meja: mejaName(sel), nama: names[selBil] || "",
+      id: uid(), t: now.toISOString(), jenis: sel === "bungkus" ? "bungkus" : "makan", meja: mejaName(sel), nama: gm ? billIds(sel).filter(function (b) { return billCount(b) > 0; }).map(billLabel).join(", ").slice(0, 80) : (names[selBil] || ""),
       items: ls.map(function (l) { return { n: l.nama, h: l.harga, q: l.q }; }),
       total: total, bayar: bayar, kembali: bayar - total
     };
@@ -515,7 +542,8 @@ body.offline .net{display:inline}
     if (viewKey === todayKey) viewOrders = todayOrders;
     write("kasir/hari-" + todayKey, { orders: todayOrders }).catch(failed);
     toast(o.kembali > 0 ? "Tersimpan. Kembalian " + rp(o.kembali) : "Tersimpan. Uang pas");
-    clearOrder(); renderHead(); renderRekap();
+    if (gm) clearAll(); else clearOrder();
+    renderHead(); renderRekap();
   }
 
   /* ---------- tampilan ---------- */
@@ -577,7 +605,7 @@ body.offline .net{display:inline}
   function addBil() {
     if (!openReady) { toast("Tunggu sebentar, data meja masih dimuat"); return; }
     var b = { id: "b" + uid(), meja: sel };
-    bils = bils.concat([b]); selBil = b.id; sheet = false;
+    bils = bils.concat([b]); selBil = b.id; sheet = false; gabung = false;
     $("#o-bayar").value = "";
     markDirty(); renderKasir();
     $("#o-nama").focus();
@@ -599,23 +627,28 @@ body.offline .net{display:inline}
     }).join("");
   }
   function updateChange() {
-    var t = sumLines(lines()), b = bayarVal(), el = $("#o-change"), done = $("#btnDone");
+    var t = sumLines(actLines()), b = bayarVal(), el = $("#o-change"), done = $("#btnDone");
     if (!t) { el.className = "change"; el.innerHTML = "<span>Kembalian</span><strong>Rp 0</strong>"; done.disabled = true; return; }
     if (b === null) { el.className = "change"; el.innerHTML = "<span>Kembalian (uang pas)</span><strong>Rp 0</strong>"; done.disabled = false; }
     else if (b >= t) { el.className = "change ok"; el.innerHTML = "<span>Kembalian</span><strong>" + rp(b - t) + "</strong>"; done.disabled = false; }
     else { el.className = "change short"; el.innerHTML = "<span>Uang kurang</span><strong>" + rp(t - b) + "</strong>"; done.disabled = true; }
   }
   function renderOrder() {
-    var ls = lines(), t = sumLines(ls), n = ls.reduce(function (a, l) { return a + l.q; }, 0);
+    var gm = isGab(); if (!gm) gabung = false;
+    var ls = gm ? gLines() : lines(), t = sumLines(ls), n = ls.reduce(function (a, l) { return a + l.q; }, 0);
     $("#lines").innerHTML = ls.length ? ls.map(function (l) {
+      if (gm) return '<li><span class="nm">' + esc(l.nama) + ' <span class="muted">· ' + esc(l.bil) + '</span></span><span class="sub">' + rp(l.harga) + " × " + l.q + " = " + rp(l.harga * l.q) + "</span></li>";
       return '<li><span class="nm">' + esc(l.nama) + '</span><div class="stp"><button type="button" data-act="dec" data-id="' + esc(l.id) + '" aria-label="Kurangi ' + esc(l.nama) + '">−</button><output>' + l.q + '</output><button type="button" data-act="inc" data-id="' + esc(l.id) + '" aria-label="Tambah ' + esc(l.nama) + '">+</button></div><span class="sub">' + rp(l.harga) + " × " + l.q + " = " + rp(l.harga * l.q) + "</span></li>";
     }).join("") : '<li class="empty">Belum ada pesanan. Tap menu untuk menambah.</li>';
     $("#o-total").textContent = rp(t);
-    $("#o-title").textContent = mejaName(sel) + " · " + billLabel(selBil);
-    var ni = $("#o-nama"); if (document.activeElement !== ni) ni.value = names[selBil] || "";
+    var label = mejaName(sel) + " · " + (gm ? "Gabungan" : billLabel(selBil));
+    $("#o-title").textContent = label;
+    var gb = $("#btnGabung"), nb = billsWithItems(sel);
+    gb.hidden = nb < 2; gb.textContent = gm ? "Kembali ke bil terpisah" : "Gabung bayar semua bil (" + nb + ")";
+    var ni = $("#o-nama"); ni.hidden = gm; if (document.activeElement !== ni) ni.value = names[selBil] || "";
     $("#btnClear").textContent = selBil !== sel ? "Hapus bil" : "Kosongkan";
-    $("#btnClear").disabled = selBil === sel && !ls.length && !names[selBil] && !$("#o-bayar").value;
-    $("#sum-n").textContent = mejaName(sel) + " · " + billLabel(selBil) + " · " + n + " item";
+    $("#btnClear").disabled = gm || (selBil === sel && !ls.length && !names[selBil] && !$("#o-bayar").value);
+    $("#sum-n").textContent = label + " · " + n + " item";
     $("#sum-t").textContent = rp(t);
     $("#sumwrap").hidden = !(ls.length && tab === "kasir" && !sheet);
     $("#order").classList.toggle("open", sheet);
@@ -852,7 +885,7 @@ body.offline .net{display:inline}
   $("#mejas").addEventListener("click", function (e) {
     var b = e.target.closest("button.meja"); if (!b) return;
     if (b.id === "addMeja") { addMeja(); return; }
-    sel = b.dataset.id; sheet = false; $("#o-bayar").value = "";
+    sel = b.dataset.id; sheet = false; gabung = false; $("#o-bayar").value = "";
     selBil = billIds(sel).filter(function (i) { return billCount(i) > 0; })[0] || sel;
     renderKasir();
   });
@@ -886,7 +919,7 @@ body.offline .net{display:inline}
   $("#bils").addEventListener("click", function (e) {
     var b = e.target.closest("button.bil"); if (!b) return;
     if (b.id === "addBil") { addBil(); return; }
-    selBil = b.dataset.id; sheet = false; $("#o-bayar").value = "";
+    selBil = b.dataset.id; sheet = false; gabung = false; $("#o-bayar").value = "";
     renderKasir();
   });
   $("#o-bayar").addEventListener("input", function () { this.value = this.value.replace(/\D/g, ""); renderOrder(); });
@@ -899,6 +932,7 @@ body.offline .net{display:inline}
     $("#o-bayar").value = b.dataset.v === "Uang pas" ? "" : b.dataset.v; renderOrder();
   });
   $("#btnDone").addEventListener("click", finish);
+  $("#btnGabung").addEventListener("click", function () { gabung = !gabung; $("#o-bayar").value = ""; renderOrder(); });
   $("#btnClear").addEventListener("click", clearOrder);
   $("#sum").addEventListener("click", openSheet);
   $("#btnClose").addEventListener("click", closeSheet);
@@ -1039,7 +1073,7 @@ body.offline .net{display:inline}
     else { target = "b" + uid(); bils = bils.concat([{ id: target, meja: mj.id }]); }
     if (p.nama) names[target] = String(p.nama).slice(0, 30);
     open[target] = lines;
-    sel = mj.id; selBil = target; sheet = false; $("#o-bayar").value = "";
+    sel = mj.id; selBil = target; sheet = false; gabung = false; $("#o-bayar").value = "";
     markDirty(); renderKasir();
     db.doc("pesanan/" + id).update({ status: "diterima" }).catch(failed);
     toast("Masuk ke " + mj.nama + (skipped ? " (" + skipped + " item dilewati)" : ""));
