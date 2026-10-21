@@ -12,4 +12,4 @@ Kasir angkringan (GitHub Pages + Firebase). Tidak ada data penjualan atau passwo
 2. Firebase > Authentication > Settings > User actions: matikan "Enable create (sign-up)".
 3. Firebase > Authentication > Settings > Authorized domains: tambahkan `rinaldisutari12-bot.github.io`.
 4. GitHub repo > Settings > Pages > Deploy from branch `main` / root.
-5. Buka `https://rinaldisutari12-bot.github.io/nongki-kasir/`, login, isi Menu dan Meja, lalu Menu > Tampilkan QR > Cetak.
+5. Buka `https://rinaldisutari12-bot.github.io/nongki-brather/`, login, isi Menu dan Meja, lalu Menu > Tampilkan QR > Cetak.
