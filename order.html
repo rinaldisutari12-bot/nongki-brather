@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pesan di Nongki Brother</title>
+<meta name="theme-color" content="#181412">
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#181412; --surface:#221d19; --surface-2:#2d2621; --line:#3d342c;
+  --fg:#f1e8dc; --muted:#a99b8b;
+  --accent:#eea133; --accent-ink:#f2ad4a; --on-accent:#1d1308;
+  --leaf:#7cc487; --danger:#f07a68;
+  --f-display:"Bricolage Grotesque","Trebuchet MS",system-ui,sans-serif;
+  --f-body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:light){
+  :root{
+    --bg:#efede9; --surface:#fbfaf8; --surface-2:#e5e1da; --line:#d2ccc2;
+    --fg:#241d17; --muted:#6a5f53;
+    --accent:#e9a232; --accent-ink:#8c4a00; --on-accent:#1f1409;
+    --leaf:#2b7a3a; --danger:#b4372a;
+    color-scheme:light;
+  }
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--fg);font:400 15px/1.45 var(--f-body);-webkit-tap-highlight-color:transparent;padding-bottom:calc(110px + env(safe-area-inset-bottom,0px))}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none;padding:0;touch-action:manipulation}
+button:disabled{cursor:not-allowed}
+:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+h1,h2,p{margin:0}
+.wrap{max-width:640px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.muted{color:var(--muted);font-size:14px}
+header{padding:calc(env(safe-area-inset-top,0px) + 18px) 0 12px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:10}
+header b{font:800 22px/1 var(--f-display);display:block}
+header small{display:block;margin-top:6px;color:var(--muted);font-size:13px}
+header strong{color:var(--accent-ink)}
+.grp{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:22px 0 8px}
+.item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.item b{font-weight:600;overflow-wrap:anywhere}
+.item .pr{display:block;color:var(--muted);font-variant-numeric:tabular-nums}
+.stp{display:flex;align-items:center;gap:8px}
+.stp button{width:42px;height:42px;border-radius:12px;background:var(--surface-2);border:1px solid var(--line);font-size:22px;font-weight:700;line-height:1}
+.stp button.add{width:auto;padding:0 18px;background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-size:15px}
+.stp output{min-width:22px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums}
+.field{width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2)}
+.field::placeholder{color:var(--muted)}
+label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:18px 0 6px}
+.primary{width:100%;padding:15px 16px;border-radius:12px;background:var(--accent);color:var(--on-accent);font-weight:800;font-size:16px}
+.primary:disabled{opacity:.4}
+.ghost{padding:12px 16px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);font-weight:600}
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));background:var(--bg);border-top:1px solid var(--line)}
+.bar .in{max-width:640px;margin:0 auto}
+.card{padding:16px;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
+.sum li{display:flex;justify-content:space-between;gap:10px;padding:4px 0}
+.sum ul{list-style:none;margin:8px 0;padding:0}
+.total{display:flex;justify-content:space-between;align-items:baseline;font-weight:700;margin-top:6px}
+.total strong{font:800 22px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.status{text-align:center;padding:36px 8px}
+.status h2{font:800 24px/1.2 var(--f-display);margin:10px 0 8px}
+.dot{width:14px;height:14px;border-radius:50%;background:var(--accent);margin:0 auto;animation:p 1.2s ease-in-out infinite}
+.dot.ok{background:var(--leaf);animation:none}
+.dot.no{background:var(--danger);animation:none}
+@keyframes p{50%{opacity:.35;transform:scale(.8)}}
+@media (prefers-reduced-motion:reduce){.dot{animation:none}}
+.mejas{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.mejas button{padding:12px 16px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font:700 16px/1 var(--f-display)}
+.err{color:var(--danger);margin-top:10px}
+</style>
+</head>
+<body>
+<header><div class="wrap"><b>Nongki Brother</b><small id="where">Memuat…</small></div></header>
+
+<main class="wrap">
+  <section id="s-load"><p class="muted" style="margin-top:24px" id="load-msg">Memuat menu…</p></section>
+
+  <section id="s-pick" hidden>
+    <h2 class="grp">Kamu duduk di meja berapa?</h2>
+    <div class="mejas" id="pick"></div>
+  </section>
+
+  <section id="s-menu" hidden>
+    <div id="menu"></div>
+    <label for="nama">Nama kamu (supaya kasir tahu pesanan siapa)</label>
+    <input class="field" id="nama" maxlength="30" placeholder="Contoh: Andi" autocomplete="given-name">
+  </section>
+
+  <section id="s-review" hidden>
+    <h2 class="grp" style="margin-top:18px">Cek pesananmu</h2>
+    <div class="card sum"><ul id="rev"></ul><div class="total"><span>Perkiraan total</span><strong id="rev-t">Rp 0</strong></div></div>
+    <p class="muted" style="margin-top:10px">Pembayaran dilakukan di kasir. Pesanan ini baru dikonfirmasi setelah diterima kasir.</p>
+    <p class="err" id="err" role="alert"></p>
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;margin-top:14px">
+      <button type="button" class="ghost" id="back">Ubah</button>
+      <button type="button" class="primary" id="send">Kirim pesanan</button>
+    </div>
+  </section>
+
+  <section id="s-status" hidden>
+    <div class="status"><div class="dot" id="st-dot"></div><h2 id="st-h"></h2><p class="muted" id="st-p"></p>
+      <button type="button" class="ghost" id="again" style="margin-top:22px" hidden>Pesan lagi</button></div>
+  </section>
+
+  <section id="s-fail" hidden><p class="muted" style="margin-top:24px" id="fail-msg"></p></section>
+</main>
+
+<div class="bar" id="bar" hidden><div class="in"><button type="button" class="primary" id="next">Lihat pesanan</button></div></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+(function () {
+  "use strict";
+  var $ = function (s) { return document.querySelector(s); };
+  var nf = new Intl.NumberFormat("id-ID");
+  var rp = function (n) { return "Rp " + nf.format(Math.round(n || 0)); };
+  var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
+  var db, auth, menu = [], mejas = [], meja = null, cart = {}, unStatus = null, sending = false;
+
+  function show(id) {
+    ["load", "pick", "menu", "review", "status", "fail"].forEach(function (k) { $("#s-" + k).hidden = k !== id && !(id === "menu" && false); });
+    $("#s-menu").hidden = id !== "menu";
+    var bar = $("#bar");
+    bar.hidden = id !== "menu";
+    window.scrollTo(0, 0);
+  }
+  function fail(msg) { $("#fail-msg").textContent = msg; show("fail"); }
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* abaikan */ } }
+
+  function count() { return Object.keys(cart).reduce(function (a, k) { return a + cart[k]; }, 0); }
+  function total() { return menu.reduce(function (a, m) { return a + (cart[m.id] || 0) * m.harga; }, 0); }
+  function renderMenu() {
+    var cats = [];
+    menu.forEach(function (m) { if (cats.indexOf(m.kat) < 0) cats.push(m.kat); });
+    $("#menu").innerHTML = cats.map(function (c) {
+      return '<h2 class="grp">' + esc(c) + "</h2>" + menu.filter(function (m) { return m.kat === c; }).map(function (m) {
+        var q = cart[m.id] || 0;
+        return '<div class="item"><div><b>' + esc(m.nama) + '</b><span class="pr">' + rp(m.harga) + '</span></div><div class="stp">' +
+          (q ? '<button type="button" data-d="-1" data-id="' + esc(m.id) + '" aria-label="Kurangi ' + esc(m.nama) + '">−</button><output>' + q + '</output><button type="button" data-d="1" data-id="' + esc(m.id) + '" aria-label="Tambah ' + esc(m.nama) + '">+</button>'
+            : '<button type="button" class="add" data-d="1" data-id="' + esc(m.id) + '">Tambah</button>') + "</div></div>";
+      }).join("");
+    }).join("");
+    var n = count(), nx = $("#next");
+    nx.disabled = !n;
+    nx.textContent = n ? "Lihat pesanan · " + n + " item · " + rp(total()) : "Pilih menu dulu";
+  }
+  function renderReview() {
+    $("#rev").innerHTML = menu.filter(function (m) { return cart[m.id]; }).map(function (m) {
+      return "<li><span>" + esc(m.nama) + " ×" + cart[m.id] + "</span><span>" + rp(m.harga * cart[m.id]) + "</span></li>";
+    }).join("");
+    $("#rev-t").textContent = rp(total());
+  }
+  $("#menu").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-id]"); if (!b) return;
+    var id = b.dataset.id, q = (cart[id] || 0) + Number(b.dataset.d);
+    if (q > 20) q = 20;
+    if (q <= 0) delete cart[id]; else cart[id] = q;
+    renderMenu();
+  });
+  $("#next").addEventListener("click", function () { if (!count()) return; renderReview(); $("#err").textContent = ""; show("review"); });
+  $("#back").addEventListener("click", function () { show("menu"); renderMenu(); });
+
+  function setMeja(m) {
+    meja = m; $("#where").innerHTML = "Pesan untuk <strong>" + esc(m.nama) + "</strong>";
+    renderMenu(); show("menu");
+  }
+
+  $("#send").addEventListener("click", function () {
+    if (sending || !count()) return;
+    sending = true; $("#send").disabled = true; $("#err").textContent = "";
+    var items = menu.filter(function (m) { return cart[m.id]; }).map(function (m) { return { id: m.id, n: m.nama, q: cart[m.id] }; });
+    db.collection("pesanan").add({
+      uid: auth.currentUser.uid, meja: meja.id, mejaNama: meja.nama, nama: $("#nama").value.trim().slice(0, 30),
+      items: items, status: "baru", t: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(function (ref) {
+      lsSet("nb-last", ref.id + "|" + Date.now());
+      cart = {}; watchStatus(ref.id);
+    }).catch(function (e) {
+      console.error(e);
+      $("#err").textContent = "Pesanan gagal terkirim. Cek sinyal lalu coba lagi, atau pesan langsung ke kasir.";
+    }).then(function () { sending = false; $("#send").disabled = false; });
+  });
+
+  function watchStatus(id) {
+    if (unStatus) unStatus();
+    show("status");
+    var dot = $("#st-dot"), h = $("#st-h"), p = $("#st-p"), ag = $("#again");
+    unStatus = db.doc("pesanan/" + id).onSnapshot(function (sn) {
+      var st = sn.exists ? sn.data().status : "baru";
+      dot.className = "dot" + (st === "diterima" ? " ok" : st === "ditolak" ? " no" : "");
+      ag.hidden = st === "baru";
+      if (st === "diterima") { h.textContent = "Pesanan diterima"; p.textContent = "Kasir sudah menerima pesananmu. Pembayaran di kasir ya."; }
+      else if (st === "ditolak") { h.textContent = "Maaf, belum bisa diproses"; p.textContent = "Silakan pesan langsung ke kasir."; }
+      else { h.textContent = "Menunggu kasir"; p.textContent = "Pesananmu sudah terkirim. Halaman ini akan berubah saat kasir menerimanya."; }
+    }, function () { h.textContent = "Pesanan terkirim"; p.textContent = "Status tidak bisa ditampilkan, tapi pesananmu sudah masuk ke kasir."; dot.className = "dot ok"; });
+  }
+  $("#again").addEventListener("click", function () {
+    if (unStatus) { unStatus(); unStatus = null; }
+    if (!meja) { show("pick"); return; }
+    show("menu"); renderMenu();
+  });
+
+  function start() {
+    var q = new URLSearchParams(location.search).get("meja");
+    return Promise.all([db.doc("kasir/menu").get(), db.doc("kasir/meja").get()]).then(function (r) {
+      var md = r[0].exists ? r[0].data() : null, jd = r[1].exists ? r[1].data() : null;
+      menu = ((md && md.items) || []).filter(function (x) { return x && x.nama; }).map(function (x) { return { id: String(x.id), nama: String(x.nama), harga: Math.max(0, Number(x.harga) || 0), kat: String(x.kat || "Lainnya") }; });
+      mejas = ((jd && jd.list) || []).filter(function (x) { return x && x.nama; }).map(function (x) { return { id: String(x.id), nama: String(x.nama) }; });
+      if (!menu.length) { $("#where").textContent = ""; return fail("Menu belum siap. Silakan pesan langsung ke kasir."); }
+      var last = (lsGet("nb-last") || "").split("|");
+      if (last[0] && Date.now() - Number(last[1]) < 3 * 36e5) { watchStatus(last[0]); }
+      var m = mejas.filter(function (x) { return x.id === q; })[0];
+      if (m) { $("#where").innerHTML = "Pesan untuk <strong>" + esc(m.nama) + "</strong>"; meja = m; if (!(last[0] && Date.now() - Number(last[1]) < 3 * 36e5)) { renderMenu(); show("menu"); } return; }
+      $("#where").textContent = "Pilih mejamu";
+      $("#pick").innerHTML = mejas.map(function (x) { return '<button type="button" data-id="' + esc(x.id) + '">' + esc(x.nama) + "</button>"; }).join("");
+      if (!(last[0] && Date.now() - Number(last[1]) < 3 * 36e5)) show("pick");
+    });
+  }
+  $("#pick").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-id]"); if (!b) return;
+    var m = mejas.filter(function (x) { return x.id === b.dataset.id; })[0]; if (m) setMeja(m);
+  });
+
+  try {
+    firebase.initializeApp(window.NB_FIREBASE);
+    auth = firebase.auth(); db = firebase.firestore();
+  } catch (e) { return fail("Gagal memuat. Cek internet lalu muat ulang halaman."); }
+  auth.signInAnonymously().then(start).catch(function (e) {
+    console.error(e);
+    fail("Tidak bisa terhubung. Cek internet lalu muat ulang halaman, atau pesan langsung ke kasir.");
+  });
+})();
+</script>
+</body>
+</html>

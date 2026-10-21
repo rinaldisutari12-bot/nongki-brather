@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Hanya akun kasir (login email + password) yang dianggap pemilik.
+    // GANTI email di bawah dengan email akun kasir yang kamu buat di Firebase Authentication.
+    function isKasir() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'password'
+        && request.auth.token.email == 'rinaldisutari12@gmail.com';
+    }
+    function signedIn() { return request.auth != null; }
+
+    // Data kasir: menu, meja, pesanan berjalan, penjualan harian, biaya.
+    // Pelanggan (login anonim) hanya boleh MEMBACA menu dan meja.
+    match /kasir/{docId} {
+      allow read: if isKasir() || (signedIn() && (docId == 'menu' || docId == 'meja'));
+      allow write: if isKasir();
+    }
+
+    // Permintaan pesanan dari pelanggan lewat QR.
+    match /pesanan/{orderId} {
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['uid', 'meja', 'mejaNama', 'nama', 'items', 'status', 't'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'baru'
+        && request.resource.data.t == request.time
+        && request.resource.data.meja is string && request.resource.data.meja.size() <= 40
+        && request.resource.data.mejaNama is string && request.resource.data.mejaNama.size() <= 40
+        && request.resource.data.nama is string && request.resource.data.nama.size() <= 30
+        && request.resource.data.items is list
+        && request.resource.data.items.size() > 0
+        && request.resource.data.items.size() <= 30;
+      // Pelanggan hanya bisa melihat pesanannya sendiri (untuk status), kasir melihat semua.
+      allow read: if isKasir() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow update, delete: if isKasir();
+    }
+
+    // Selain itu semua ditutup.
+  }
+}
