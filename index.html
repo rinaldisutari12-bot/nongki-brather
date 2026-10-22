@@ -441,7 +441,7 @@ body.offline .net{display:inline}
   ];
   var menu = SAMPLE.map(function (x) { return Object.assign({ opsi: [] }, x); });
   var menuSaved = false, ready = false;
-  var mejas = [{ id: "m1", nama: "Meja 1" }], open = {}, bils = [], names = {}, sel = "m1", selBil = "m1", dirty = false, dirtyVer = 0, openT = null, renameId = null;
+  var mejas = [{ id: "m1", nama: "Meja 1" }], open = {}, bils = [], names = {}, pids = {}, sel = "m1", selBil = "m1", dirty = false, dirtyVer = 0, openT = null, renameId = null;
   var gabung = false, cat = "Semua", tab = "kasir", sheet = false, editId = null;
   var todayKey = bizKey(new Date()), viewKey = todayKey, todayOrders = [], viewOrders = [];
   var unToday = null, unView = null, armed = null, armT = null, toastT = null;
@@ -518,13 +518,14 @@ body.offline .net{display:inline}
     if (o && typeof o === "object") Object.keys(o).forEach(function (k) { var v = String(o[k] || "").trim(); if (v) r[k] = v.slice(0, 30); });
     return r;
   }
+  function normNames2(o) { var r = {}; if (o && typeof o === "object") Object.keys(o).forEach(function (k) { var v = String(o[k] || "").slice(0, 40); if (v) r[k] = v; }); return r; }
   var sumOrders = function (os) { return os.reduce(function (a, o) { return a + o.total; }, 0); };
 
   /* ---------- pesanan berjalan ---------- */
   function cur() { return open[selBil] || []; }
   function markDirty() { dirty = true; var v = ++dirtyVer; clearTimeout(openT); openT = setTimeout(function () { flushOpen(v); }, 500); }
   function flushOpen(v) {
-    write("kasir/buka", { lines: open, bils: bils, nama: names }).then(function () { if (v === dirtyVer) dirty = false; }, function () { if (v === dirtyVer) dirty = false; failed(); });
+    write("kasir/buka", { lines: open, bils: bils, nama: names, pid: pids }).then(function () { if (v === dirtyVer) dirty = false; }, function () { if (v === dirtyVer) dirty = false; failed(); });
   }
   function setCur(arr) { if (!openReady) { toast("Tunggu sebentar, data meja masih dimuat"); return; } if (arr.length) open[selBil] = arr; else delete open[selBil]; markDirty(); renderKasir(); }
   function qtyOf(id) { return cur().reduce(function (a, x) { return a + (x.id === id ? x.q : 0); }, 0); }
@@ -622,7 +623,7 @@ body.offline .net{display:inline}
   function clearOrder() {
     $("#o-bayar").value = ""; sheet = false;
     var id = selBil;
-    delete names[id];
+    delete names[id]; delete pids[id];
     if (id !== sel) {
       bils = bils.filter(function (b) { return b.id !== id; });
       delete open[id]; selBil = sel; markDirty(); renderKasir();
@@ -630,7 +631,7 @@ body.offline .net{display:inline}
   }
   function clearAll() {
     $("#o-bayar").value = ""; sheet = false;
-    billIds(sel).forEach(function (b) { delete open[b]; delete names[b]; });
+    billIds(sel).forEach(function (b) { delete open[b]; delete names[b]; delete pids[b]; });
     bils = bils.filter(function (b) { return b.meja !== sel; });
     selBil = sel; gabung = false; markDirty(); renderKasir();
   }
@@ -652,6 +653,9 @@ body.offline .net{display:inline}
     if (viewKey === todayKey) viewOrders = todayOrders;
     write("kasir/hari-" + todayKey, { orders: todayOrders }).catch(failed);
     toast(o.kembali > 0 ? "Tersimpan. Kembalian " + rp(o.kembali) : "Tersimpan. Uang pas");
+    (gm ? billIds(sel).filter(function (b) { return billCount(b) > 0; }) : [selBil]).forEach(function (b) {
+      if (pids[b]) db.doc("pesanan/" + pids[b]).update({ status: "selesai" }).catch(function (e) { console.error(e); });
+    });
     if (gm) clearAll(); else clearOrder();
     renderHead(); renderRekap();
   }
@@ -1017,7 +1021,7 @@ body.offline .net{display:inline}
     } else if (act === "mdelj") {
       if (armed !== "j:" + id) { arm("j:" + id); renderMenu(); return; }
       armed = null;
-      billIds(id).forEach(function (b) { delete open[b]; delete names[b]; });
+      billIds(id).forEach(function (b) { delete open[b]; delete names[b]; delete pids[b]; });
       bils = bils.filter(function (b) { return b.meja !== id; });
       markDirty();
       saveMejas(mejas.filter(function (m) { return m.id !== id; }));
@@ -1205,6 +1209,7 @@ body.offline .net{display:inline}
     if (!(open[base] && open[base].length) && !names[base]) target = base;
     else { target = "b" + uid(); bils = bils.concat([{ id: target, meja: mj.id }]); }
     if (p.nama) names[target] = String(p.nama).slice(0, 30);
+    pids[target] = id;
     open[target] = lines;
     sel = mj.id; selBil = target; sheet = false; gabung = false; $("#o-bayar").value = "";
     markDirty(); renderKasir();
@@ -1280,7 +1285,7 @@ body.offline .net{display:inline}
       if (d === undefined) return;
       openReady = true;
       if (dirty) return;
-      open = normOpen(d && d.lines); bils = normBils(d && d.bils); names = normNames(d && d.nama); renderKasir();
+      open = normOpen(d && d.lines); bils = normBils(d && d.bils); names = normNames(d && d.nama); pids = normNames2(d && d.pid); renderKasir();
     });
     startBia();
     startToday(); startView();

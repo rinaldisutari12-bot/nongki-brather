@@ -267,9 +267,10 @@ label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:18p
     var dot = $("#st-dot"), h = $("#st-h"), p = $("#st-p"), ag = $("#again");
     unStatus = db.doc("pesanan/" + id).onSnapshot(function (sn) {
       var st = sn.exists ? sn.data().status : "baru";
-      dot.className = "dot" + (st === "diterima" ? " ok" : st === "ditolak" ? " no" : "");
+      dot.className = "dot" + (st === "diterima" || st === "selesai" ? " ok" : st === "ditolak" ? " no" : "");
       ag.hidden = st === "baru";
-      if (st === "diterima") { h.textContent = "Pesanan diterima"; p.textContent = "Kasir sudah menerima pesananmu. Pembayaran di kasir ya."; }
+      if (st === "selesai") { h.textContent = "Terima kasih!"; p.textContent = "Sampai ketemu lagi. Jangan lupa balik lagi ke Nongki Brother ya."; lsSet("nb-last", ""); }
+      else if (st === "diterima") { h.textContent = "Pesanan diterima"; p.textContent = "Kasir sudah menerima pesananmu. Pembayaran di kasir ya."; }
       else if (st === "ditolak") { h.textContent = "Maaf, belum bisa diproses"; p.textContent = "Silakan pesan langsung ke kasir."; }
       else { h.textContent = "Menunggu kasir"; p.textContent = "Pesananmu sudah terkirim. Halaman ini akan berubah saat kasir menerimanya."; }
     }, function () { h.textContent = "Pesanan terkirim"; p.textContent = "Status tidak bisa ditampilkan, tapi pesananmu sudah masuk ke kasir."; dot.className = "dot ok"; });
