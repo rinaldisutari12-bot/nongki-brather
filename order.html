@@ -119,6 +119,7 @@ label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:18p
 
   <section id="s-status" hidden>
     <div class="status"><div class="dot" id="st-dot"></div><h2 id="st-h"></h2><p class="muted" id="st-p"></p>
+      <div class="card sum" id="st-bill" hidden style="text-align:left;margin-top:20px"></div>
       <button type="button" class="ghost" id="again" style="margin-top:22px" hidden>Pesan lagi</button></div>
   </section>
 
@@ -266,18 +267,32 @@ label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:18p
     }).then(function () { sending = false; $("#send").disabled = false; });
   });
 
+  function billHtml(b) {
+    var its = Array.isArray(b.items) ? b.items : [];
+    var rows = its.map(function (i) {
+      var q = Number(i.q) || 0, det = (i.v ? i.v : "") + (i.c ? (i.v ? " · " : "") + "“" + i.c + "”" : "");
+      return "<li><span>" + esc(i.n || "?") + " × " + q + (det ? '<span class="vt">' + esc(det) + "</span>" : "") + "</span><span>" + rp((Number(i.h) || 0) * q) + "</span></li>";
+    }).join("");
+    var out = "<b>Bill</b><ul>" + rows + '</ul><div class="total"><span>Total</span><strong>' + rp(b.total) + "</strong></div>";
+    if (b.gabung) out += '<p class="muted" style="margin-top:8px">Dibayar gabungan bersama bil lain di mejamu (total semua ' + rp(b.totalSemua) + ").</p>";
+    else if (Number(b.bayar) > 0) out += '<p class="muted" style="margin-top:8px">Uang diterima ' + rp(b.bayar) + " · Kembalian " + rp(b.kembali) + "</p>";
+    return out;
+  }
   function watchStatus(id) {
     if (unStatus) unStatus();
     show("status");
     var dot = $("#st-dot"), h = $("#st-h"), p = $("#st-p"), ag = $("#again");
     unStatus = db.doc("pesanan/" + id).onSnapshot(function (sn) {
-      var st = sn.exists ? sn.data().status : "baru";
-      dot.className = "dot" + (st === "diterima" || st === "selesai" ? " ok" : st === "ditolak" ? " no" : "");
+      var d = sn.exists ? sn.data() : {}, st = d.status || "baru", bl = $("#st-bill");
+      dot.className = "dot" + (st === "diantar" || st === "selesai" ? " ok" : st === "ditolak" ? " no" : "");
       ag.hidden = st === "baru";
-      if (st === "selesai") { h.textContent = "Terima kasih!"; p.textContent = "Sampai ketemu lagi. Jangan lupa balik lagi ke Nongki Brother ya."; lsSet("nb-last", ""); }
-      else if (st === "diterima") { h.textContent = "Pesanan diterima"; p.textContent = "Kasir sudah menerima pesananmu. Pembayaran di kasir ya."; }
+      bl.hidden = !(st === "selesai" && d.bill);
+      if (!bl.hidden) bl.innerHTML = billHtml(d.bill);
+      if (st === "selesai") { h.textContent = "Terima kasih!"; p.textContent = "Pembayaran sudah diterima. Ini bill kamu. Sampai ketemu lagi di Nongki Brother!"; lsSet("nb-last", ""); }
+      else if (st === "diantar") { h.textContent = "Pesanan sudah diantar"; p.textContent = "Selamat menikmati! Pembayaran dilakukan di kasir ya."; }
+      else if (st === "diterima") { h.textContent = "Menu sedang diproses"; p.textContent = "Pesananmu sedang disiapkan. Mohon ditunggu sebentar ya."; }
       else if (st === "ditolak") { h.textContent = "Maaf, belum bisa diproses"; p.textContent = "Silakan pesan langsung ke kasir."; }
-      else { h.textContent = "Menunggu kasir"; p.textContent = "Pesananmu sudah terkirim. Halaman ini akan berubah saat kasir menerimanya."; }
+      else { h.textContent = "Pesanan terkirim"; p.textContent = "Pesananmu sudah masuk ke kasir. Halaman ini otomatis berubah saat pesananmu diproses."; }
     }, function () { h.textContent = "Pesanan terkirim"; p.textContent = "Status tidak bisa ditampilkan, tapi pesananmu sudah masuk ke kasir."; dot.className = "dot ok"; });
   }
   $("#again").addEventListener("click", function () {

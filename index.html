@@ -300,6 +300,7 @@ body.offline .net{display:inline}
         <div class="order-head"><h2 id="o-title">Pesanan</h2><button type="button" class="ghost closeonly" id="btnClose">Kembali ke menu</button></div>
         <input class="field" id="o-nama" placeholder="Nama bil, misal: Andi (boleh kosong)" autocomplete="off" maxlength="30" aria-label="Nama bil">
         <button type="button" class="ghost" id="btnGabung" hidden>Gabung bayar semua bil</button>
+        <button type="button" class="ghost" id="btnAntar" hidden>Tandai sudah diantar</button>
         <ul class="lines" id="lines"></ul>
         <div class="total"><span>Total</span><strong id="o-total">Rp 0</strong></div>
         <div>
@@ -446,6 +447,7 @@ body.offline .net{display:inline}
   ];
   var menu = SAMPLE.map(function (x) { return Object.assign({ opsi: [] }, x); });
   var menuSaved = false, ready = false;
+  var delivered = {};
   var fotos = {}, pendFoto; /* pendFoto: undefined = tidak diubah, teks = foto baru, null = hapus foto */
   function fotoOf(id) { return fotos[id] || ""; }
   function compressImg(file) {
@@ -684,7 +686,14 @@ body.offline .net{display:inline}
     write("kasir/hari-" + todayKey, { orders: todayOrders }).catch(failed);
     toast(o.kembali > 0 ? "Tersimpan. Kembalian " + rp(o.kembali) : "Tersimpan. Uang pas");
     (gm ? billIds(sel).filter(function (b) { return billCount(b) > 0; }) : [selBil]).forEach(function (b) {
-      if (pids[b]) db.doc("pesanan/" + pids[b]).update({ status: "selesai" }).catch(function (e) { console.error(e); });
+      if (!pids[b]) return;
+      var bl = (open[b] || []).map(function (x) { return mkLine(x); }).filter(Boolean);
+      var bill = {
+        items: bl.map(function (l) { return { n: l.nama, q: l.q, h: l.harga, v: l.v || "", c: l.c || "" }; }),
+        total: sumLines(bl), bayar: bayar, kembali: bayar - total
+      };
+      if (gm) { bill.gabung = true; bill.totalSemua = total; }
+      db.doc("pesanan/" + pids[b]).update({ status: "selesai", bill: bill }).catch(function (e) { console.error(e); });
     });
     if (gm) clearAll(); else clearOrder();
     renderHead(); renderRekap();
@@ -789,6 +798,9 @@ body.offline .net{display:inline}
     $("#o-total").textContent = rp(t);
     var label = mejaName(sel) + " · " + (gm ? "Gabungan" : billLabel(selBil));
     $("#o-title").textContent = label;
+    var ba = $("#btnAntar"), apid = pids[selBil];
+    ba.hidden = gm || !apid || !ls.length;
+    if (apid) { ba.textContent = delivered[apid] ? "Sudah diantar ✓" : "Tandai sudah diantar"; ba.disabled = !!delivered[apid]; }
     var gb = $("#btnGabung"), nb = billsWithItems(sel);
     gb.hidden = nb < 2; gb.textContent = gm ? "Kembali ke bil terpisah" : "Gabung bayar semua bil (" + nb + ")";
     var ni = $("#o-nama"); ni.hidden = gm; if (document.activeElement !== ni) ni.value = names[selBil] || "";
@@ -1083,6 +1095,11 @@ body.offline .net{display:inline}
     $("#o-bayar").value = b.dataset.v === "Uang pas" ? "" : b.dataset.v; renderOrder();
   });
   $("#btnDone").addEventListener("click", finish);
+  $("#btnAntar").addEventListener("click", function () {
+    var pid = pids[selBil]; if (!pid || delivered[pid]) return;
+    delivered[pid] = true; renderOrder();
+    db.doc("pesanan/" + pid).update({ status: "diantar" }).then(function () { toast("Tamu diberi tahu: pesanan sudah diantar"); }).catch(function (e) { delivered[pid] = false; renderOrder(); failed(e); });
+  });
   $("#btnGabung").addEventListener("click", function () { gabung = !gabung; $("#o-bayar").value = ""; renderOrder(); });
   $("#btnClear").addEventListener("click", clearOrder);
   $("#sum").addEventListener("click", openSheet);
