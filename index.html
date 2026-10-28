@@ -433,7 +433,7 @@ body.offline .net{display:inline}
     return db.doc(path).onSnapshot(function (sn) { cb(sn.exists ? sn.data() : null); }, function (e) { console.error(path, e); cb(undefined); });
   }
   function write(path, data) { return db.doc(path).set(data); }
-  function failed(e) { console.error(e); toast("Gagal menyimpan. Cek sinyal atau coba login ulang."); }
+  function failed(e) { console.error(e); toast("Gagal menyimpan" + (e && e.code ? " (" + e.code + ")" : "") + ". Cek sinyal atau coba login ulang."); }
 
   /* ---------- data ---------- */
   var SAMPLE = [
