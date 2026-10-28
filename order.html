@@ -215,7 +215,7 @@ label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:18p
     });
     return out;
   }
-  function openOpt(m) { optCtx = { m: m, sel: {}, c: "" }; renderOpt(); $("#opt").hidden = false; }
+  function openOpt(m) { optCtx = { m: m, sel: {}, c: "", q: 1 }; renderOpt(); $("#opt").hidden = false; }
   function closeOpt() { $("#opt").hidden = true; optCtx = null; }
   function renderOpt() {
     if (!optCtx) return;
@@ -224,7 +224,7 @@ label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:18p
       return '<div class="og"><label>' + esc(g.g) + (g.wajib ? " (wajib pilih)" : " (boleh kosong)") + '</label><div class="ochips">' + g.pil.map(function (p) {
         return '<button type="button" class="oc" data-g="' + esc(g.g) + '" data-n="' + esc(p.n) + '" aria-pressed="' + (optCtx.sel[g.g] === p.n) + '">' + esc(p.n) + (p.h ? "<small>+" + rp(p.h) + "</small>" : "") + "</button>";
       }).join("") + "</div></div>";
-    }).join("") + '<div class="og"><label for="opt-c">Catatan (boleh kosong)</label><input class="field" id="opt-c" maxlength="60" placeholder="Contoh: kurang manis" value="' + esc(optCtx.c) + '" autocomplete="off" style="margin:0"></div><div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;margin-top:16px"><button type="button" class="ghost" data-oa="cancel">Batal</button><button type="button" class="primary" data-oa="ok"' + (miss.length ? " disabled" : "") + ">" + (miss.length ? "Pilih " + esc(miss[0].g) + " dulu" : "Tambah · " + rp(m.harga + sumH(o))) + "</button></div>";
+    }).join("") + '<div class="og"><label>Jumlah</label><div class="stp"><button type="button" data-oq="-1" aria-label="Kurangi jumlah">−</button><output>' + optCtx.q + '</output><button type="button" data-oq="1" aria-label="Tambah jumlah">+</button></div></div><div class="og"><label for="opt-c">Catatan (boleh kosong)</label><input class="field" id="opt-c" maxlength="60" placeholder="Contoh: kurang manis" value="' + esc(optCtx.c) + '" autocomplete="off" style="margin:0"></div><div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;margin-top:16px"><button type="button" class="ghost" data-oa="cancel">Batal</button><button type="button" class="primary" data-oa="ok"' + (miss.length ? " disabled" : "") + ">" + (miss.length ? "Pilih " + esc(miss[0].g) + " dulu" : "Tambah " + optCtx.q + " · " + rp((m.harga + sumH(o)) * optCtx.q)) + "</button></div>";
   }
   $("#opt").addEventListener("click", function (e) {
     if (!optCtx) return;
@@ -232,10 +232,12 @@ label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:18p
     var ci = $("#opt-c"); if (ci) optCtx.c = ci.value;
     var ch = e.target.closest("button.oc");
     if (ch) { var g = ch.dataset.g, n = ch.dataset.n, grp = optCtx.m.opsi.filter(function (x) { return x.g === g; })[0]; if (optCtx.sel[g] === n && !(grp && grp.wajib)) delete optCtx.sel[g]; else optCtx.sel[g] = n; renderOpt(); return; }
+    var oq = e.target.closest("button[data-oq]");
+    if (oq) { optCtx.q = Math.max(1, Math.min(20, optCtx.q + Number(oq.dataset.oq))); renderOpt(); return; }
     var oa = e.target.closest("button[data-oa]"); if (!oa) return;
     if (oa.dataset.oa === "cancel") { closeOpt(); return; }
-    var m = optCtx.m, o = optSelected(), c = optCtx.c.trim().slice(0, 60);
-    closeOpt(); addLine(m.id, o, c, 1); renderMenu();
+    var m = optCtx.m, o = optSelected(), c = optCtx.c.trim().slice(0, 60), qn = optCtx.q;
+    closeOpt(); addLine(m.id, o, c, qn); renderMenu();
   });
   $("#opt").addEventListener("input", function (e) { if (optCtx && e.target.id === "opt-c") optCtx.c = e.target.value; });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && optCtx) closeOpt(); });
