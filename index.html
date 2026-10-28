@@ -90,6 +90,10 @@ main{padding-block:14px 0}
 .tile:active{transform:scale(.97);background:var(--surface-2)}
 .tile.on{border-color:var(--accent-ink)}
 .tile.on .n{padding-right:30px}
+.tile .ph{display:block;width:calc(100% + 24px);margin:-12px -12px 0;aspect-ratio:4/3;object-fit:cover;border-radius:13px 13px 0 0;background:var(--surface-2)}
+.mrl{display:flex;gap:10px;align-items:center;min-width:0}
+.mth{width:48px;height:48px;border-radius:10px;object-fit:cover;flex:none;background:var(--surface-2)}
+.fprev{width:120px;height:120px;border-radius:12px;object-fit:cover;display:block;margin-bottom:8px;border:1px solid var(--line)}
 .tile .q{position:absolute;top:8px;right:8px;min-width:26px;height:26px;padding:0 7px;border-radius:13px;background:var(--accent);color:var(--on-accent);font-weight:700;display:grid;place-items:center;font-variant-numeric:tabular-nums}
 .empty{grid-column:1/-1;color:var(--muted);padding:18px 0}
 .notice{padding:11px 13px;border-radius:12px;border:1px dashed var(--accent-ink);font-size:14px;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between}
@@ -317,6 +321,7 @@ body.offline .net{display:inline}
         <div><label for="m-harga">Harga (Rp)</label><input class="field" id="m-harga" inputmode="numeric" placeholder="1500"></div>
         <div><label for="m-kat">Kategori</label><input class="field" id="m-kat" list="kat-list" maxlength="24" placeholder="Gorengan"><datalist id="kat-list"></datalist></div>
       </div>
+      <div><label>Foto (boleh kosong)</label><img id="m-fprev" class="fprev" alt="" hidden><div class="mact"><button type="button" class="ghost" id="m-fpick">Pilih foto</button><button type="button" class="ghost" id="m-fdel" hidden>Hapus foto</button></div><input type="file" id="m-file" accept="image/*" hidden><p class="muted" style="margin-top:6px">Foto otomatis dipotong kotak dan dikecilkan. Foto ikut tampil di halaman pelanggan.</p></div>
       <div><label for="m-opsi">Pilihan (boleh kosong)</label><textarea class="field" id="m-opsi" rows="3" placeholder="Suhu*: Es, Panas&#10;Telur: Pakai telur +3000" maxlength="600"></textarea><p class="muted" style="margin-top:6px">Satu baris = satu kelompok pilihan. Tulis nama kelompok, titik dua, lalu pilihan dipisah koma. Tambah * setelah nama kalau wajib dipilih. Tambahan harga ditulis +3000.</p></div>
       <div class="row"><button type="submit" class="primary" id="m-save">Tambah ke menu</button><button type="button" class="ghost" id="m-cancel" hidden>Batal</button></div>
     </form>
@@ -441,6 +446,31 @@ body.offline .net{display:inline}
   ];
   var menu = SAMPLE.map(function (x) { return Object.assign({ opsi: [] }, x); });
   var menuSaved = false, ready = false;
+  var fotos = {}, pendFoto; /* pendFoto: undefined = tidak diubah, teks = foto baru, null = hapus foto */
+  function fotoOf(id) { return fotos[id] || ""; }
+  function compressImg(file) {
+    return new Promise(function (res, rej) {
+      var url = URL.createObjectURL(file), im = new Image();
+      im.onload = function () {
+        var s = Math.min(im.width, im.height), c = document.createElement("canvas");
+        c.width = c.height = Math.min(480, s);
+        c.getContext("2d").drawImage(im, (im.width - s) / 2, (im.height - s) / 2, s, s, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url); res(c.toDataURL("image/jpeg", 0.72));
+      };
+      im.onerror = function () { URL.revokeObjectURL(url); rej(new Error("img")); };
+      im.src = url;
+    });
+  }
+  function saveFoto(id, v) {
+    if (v === undefined) return;
+    var ref = db.collection("foto").doc(id);
+    if (v) { fotos[id] = v; ref.set({ d: v }).catch(failed); } else { delete fotos[id]; ref.delete().catch(failed); }
+  }
+  function renderFprev() {
+    var cur = pendFoto === undefined ? (editId ? fotoOf(editId) : "") : (pendFoto || ""), img = $("#m-fprev");
+    img.hidden = !cur; if (cur) img.src = cur;
+    $("#m-fdel").hidden = !cur; $("#m-fpick").textContent = cur ? "Ganti foto" : "Pilih foto";
+  }
   var mejas = [{ id: "m1", nama: "Meja 1" }], open = {}, bils = [], names = {}, pids = {}, sel = "m1", selBil = "m1", dirty = false, dirtyVer = 0, openT = null, renameId = null;
   var gabung = false, cat = "Semua", tab = "kasir", sheet = false, editId = null;
   var todayKey = bizKey(new Date()), viewKey = todayKey, todayOrders = [], viewOrders = [];
@@ -737,7 +767,8 @@ body.offline .net{display:inline}
     if (!menu.length) { el.innerHTML = '<p class="empty">Belum ada menu. Tambahkan dulu di tab Menu.</p>'; return; }
     el.innerHTML = menu.filter(function (m) { return cat === "Semua" || m.kat === cat; }).map(function (m) {
       var q = qtyOf(m.id);
-      return '<button type="button" class="tile' + (q ? " on" : "") + '" data-id="' + esc(m.id) + '"><span class="n">' + esc(m.nama) + '</span><span class="p">' + rp(m.harga) + "</span>" + (q ? '<span class="q">' + q + "</span>" : "") + "</button>";
+      var f = fotoOf(m.id);
+      return '<button type="button" class="tile' + (q ? " on" : "") + '" data-id="' + esc(m.id) + '">' + (f ? '<img class="ph" src="' + esc(f) + '" alt="" loading="lazy">' : "") + '<span class="n">' + esc(m.nama) + '</span><span class="p">' + rp(m.harga) + "</span>" + (q ? '<span class="q">' + q + "</span>" : "") + "</button>";
     }).join("");
   }
   function updateChange() {
@@ -784,11 +815,13 @@ body.offline .net{display:inline}
     $("#m-title").textContent = editId ? "Ubah menu" : "Tambah menu";
     $("#m-save").textContent = editId ? "Simpan perubahan" : "Tambah ke menu";
     $("#m-cancel").hidden = !editId;
+    renderFprev();
     if (!menu.length) { $("#mlist").innerHTML = '<p class="empty">Belum ada menu. Isi form di atas.</p>'; return; }
     $("#mlist").innerHTML = categories().map(function (c) {
       return '<h3 class="grp">' + esc(c) + "</h3>" + menu.filter(function (m) { return m.kat === c; }).map(function (m) {
         var a = armed === "m:" + m.id;
-        return '<div class="mrow"><div><b>' + esc(m.nama) + '</b><span class="pr">' + rp(m.harga) + (m.opsi.length ? " · " + esc(m.opsi.map(function (g) { return g.g; }).join(", ")) : "") + '</span></div><div class="mact"><button type="button" data-act="edit" data-id="' + esc(m.id) + '">Ubah</button><button type="button" data-act="mdel" data-id="' + esc(m.id) + '"' + (a ? ' class="armed"' : "") + ">" + (a ? "Yakin hapus?" : "Hapus") + "</button></div></div>";
+        var f = fotoOf(m.id);
+        return '<div class="mrow"><div class="mrl">' + (f ? '<img class="mth" src="' + esc(f) + '" alt="" loading="lazy">' : "") + '<div><b>' + esc(m.nama) + '</b><span class="pr">' + rp(m.harga) + (m.opsi.length ? " · " + esc(m.opsi.map(function (g) { return g.g; }).join(", ")) : "") + '</span></div></div><div class="mact"><button type="button" data-act="edit" data-id="' + esc(m.id) + '">Ubah</button><button type="button" data-act="mdel" data-id="' + esc(m.id) + '"' + (a ? ' class="armed"' : "") + ">" + (a ? "Yakin hapus?" : "Hapus") + "</button></div></div>";
       }).join("");
     }).join("");
   }
@@ -965,7 +998,7 @@ body.offline .net{display:inline}
     });
     renderAll();
   }
-  function resetForm() { editId = null; $("#m-nama").value = ""; $("#m-harga").value = ""; $("#m-kat").value = ""; $("#m-opsi").value = ""; renderMenu(); }
+  function resetForm() { editId = null; pendFoto = undefined; $("#m-file").value = ""; $("#m-nama").value = ""; $("#m-harga").value = ""; $("#m-kat").value = ""; $("#m-opsi").value = ""; renderMenu(); }
 
   /* ---------- ganti hari ---------- */
   function startToday() {
@@ -1064,30 +1097,41 @@ body.offline .net{display:inline}
     if (isNaN(harga)) { toast("Isi harganya dulu"); $("#m-harga").focus(); return; }
     var rawO = $("#m-opsi").value.trim(), opsi = parseOpsi(rawO);
     if (rawO && !opsi.length) { toast("Format pilihan belum benar. Contoh: Suhu*: Es, Panas"); $("#m-opsi").focus(); return; }
-    var items = menu.map(function (m) { return Object.assign({}, m); });
+    var items = menu.map(function (m) { return Object.assign({}, m); }), fid;
     if (editId) {
+      fid = editId;
       items.forEach(function (m) { if (m.id === editId) { m.nama = nama; m.harga = harga; m.kat = kat; m.opsi = opsi; } });
       toast("Menu diubah");
     } else {
-      items.push({ id: uid(), nama: nama, harga: harga, kat: kat, opsi: opsi });
+      fid = uid();
+      items.push({ id: fid, nama: nama, harga: harga, kat: kat, opsi: opsi });
       toast(nama + " masuk menu");
     }
+    var pf = pendFoto; pendFoto = undefined; $("#m-file").value = "";
     editId = null; $("#m-nama").value = ""; $("#m-harga").value = ""; $("#m-opsi").value = ""; $("#m-kat").value = kat;
+    saveFoto(fid, pf);
     saveMenu(items);
   });
   $("#m-cancel").addEventListener("click", resetForm);
-  $("#m-clear").addEventListener("click", function () { saveMenu([]); toast("Menu dikosongkan"); });
+  $("#m-clear").addEventListener("click", function () { Object.keys(fotos).forEach(function (id) { saveFoto(id, null); }); saveMenu([]); toast("Menu dikosongkan"); });
+  $("#m-fpick").addEventListener("click", function () { $("#m-file").click(); });
+  $("#m-file").addEventListener("change", function () {
+    var f = this.files && this.files[0]; this.value = ""; if (!f) return;
+    compressImg(f).then(function (d) { pendFoto = d; renderFprev(); }).catch(function () { toast("Foto tidak bisa dibaca. Coba foto lain."); });
+  });
+  $("#m-fdel").addEventListener("click", function () { pendFoto = null; renderFprev(); });
   $("#mlist").addEventListener("click", function (e) {
     var b = e.target.closest("button[data-act]"); if (!b) return;
     var id = b.dataset.id;
     if (b.dataset.act === "edit") {
       var m = menu.filter(function (x) { return x.id === id; })[0]; if (!m) return;
-      editId = id; $("#m-nama").value = m.nama; $("#m-harga").value = String(m.harga); $("#m-kat").value = m.kat; $("#m-opsi").value = fmtOpsi(m.opsi);
+      editId = id; pendFoto = undefined; $("#m-nama").value = m.nama; $("#m-harga").value = String(m.harga); $("#m-kat").value = m.kat; $("#m-opsi").value = fmtOpsi(m.opsi);
       renderMenu(); window.scrollTo(0, 0); $("#m-nama").focus();
     } else {
       if (armed !== "m:" + id) { arm("m:" + id); renderMenu(); return; }
       armed = null;
-      if (editId === id) { editId = null; $("#m-nama").value = ""; $("#m-harga").value = ""; $("#m-opsi").value = ""; }
+      if (editId === id) { editId = null; pendFoto = undefined; $("#m-nama").value = ""; $("#m-harga").value = ""; $("#m-opsi").value = ""; }
+      saveFoto(id, null);
       saveMenu(menu.filter(function (x) { return x.id !== id; }));
     }
   });
@@ -1273,6 +1317,10 @@ body.offline .net{display:inline}
       if (d && Array.isArray(d.items)) { menu = normMenu(d.items); menuSaved = true; }
       renderAll();
     });
+    db.collection("foto").onSnapshot(function (sn) {
+      var f = {}; sn.forEach(function (d) { var x = d.data(); if (x && typeof x.d === "string") f[d.id] = x.d; });
+      fotos = f; renderTiles(); renderMenu();
+    }, function (e) { console.error("foto", e); });
     watch("kasir/meja", function (d) {
       if (d === undefined) return;
       if (d === null) write("kasir/meja", { list: mejas }).catch(failed);

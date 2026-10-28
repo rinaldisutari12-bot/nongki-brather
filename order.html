@@ -42,6 +42,8 @@ header small{display:block;margin-top:6px;color:var(--muted);font-size:13px}
 header strong{color:var(--accent-ink)}
 .grp{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:22px 0 8px}
 .item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.item.hasf{grid-template-columns:76px minmax(0,1fr) auto}
+.item .th{width:76px;height:76px;border-radius:12px;object-fit:cover;background:var(--surface-2)}
 .item b{font-weight:600;overflow-wrap:anywhere}
 .item .pr{display:block;color:var(--muted);font-variant-numeric:tabular-nums}
 .stp{display:flex;align-items:center;gap:8px}
@@ -138,7 +140,7 @@ label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:18p
   var nf = new Intl.NumberFormat("id-ID");
   var rp = function (n) { return "Rp " + nf.format(Math.round(n || 0)); };
   var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
-  var db, auth, menu = [], mejas = [], meja = null, cart = [], unStatus = null, sending = false;
+  var db, auth, fotos = {}, menu = [], mejas = [], meja = null, cart = [], unStatus = null, sending = false;
 
   function show(id) {
     ["load", "pick", "menu", "review", "status", "fail"].forEach(function (k) { $("#s-" + k).hidden = k !== id && !(id === "menu" && false); });
@@ -172,7 +174,8 @@ label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:18p
         var q = qtyOf(m.id), id = esc(m.id), ctl;
         if (m.opsi.length) ctl = '<button type="button" class="stp-add add" data-pick="' + id + '">Pilih</button>';
         else ctl = q ? '<button type="button" data-d="-1" data-id="' + id + '" aria-label="Kurangi ' + esc(m.nama) + '">−</button><output>' + q + '</output><button type="button" data-d="1" data-id="' + id + '" aria-label="Tambah ' + esc(m.nama) + '">+</button>' : '<button type="button" class="add" data-d="1" data-id="' + id + '">Tambah</button>';
-        return '<div class="item"><div><b>' + esc(m.nama) + '</b><span class="pr">' + rp(m.harga) + (m.opsi.length ? " · ada pilihan" : "") + "</span>" + (m.opsi.length && q ? '<span class="cnt">' + q + " di keranjang</span>" : "") + '</div><div class="stp">' + ctl + "</div></div>";
+        var f = fotos[m.id];
+        return '<div class="item' + (f ? " hasf" : "") + '">' + (f ? '<img class="th" src="' + esc(f) + '" alt="" loading="lazy">' : "") + '<div><b>' + esc(m.nama) + '</b><span class="pr">' + rp(m.harga) + (m.opsi.length ? " · ada pilihan" : "") + "</span>" + (m.opsi.length && q ? '<span class="cnt">' + q + " di keranjang</span>" : "") + '</div><div class="stp">' + ctl + "</div></div>";
       }).join("");
     }).join("");
     var n = count(), nx = $("#next");
@@ -290,8 +293,13 @@ label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:18p
   }
   function start() {
     var q = new URLSearchParams(location.search).get("meja");
-    return Promise.all([db.doc("kasir/menu").get(), db.doc("kasir/meja").get()]).then(function (r) {
+    var fp = db.collection("foto").get().then(function (sn) {
+      var f = {}; sn.forEach(function (d) { var x = d.data(); if (x && typeof x.d === "string" && x.d.indexOf("data:image/") === 0) f[d.id] = x.d; });
+      return f;
+    }).catch(function () { return {}; });
+    return Promise.all([db.doc("kasir/menu").get(), db.doc("kasir/meja").get(), fp]).then(function (r) {
       var md = r[0].exists ? r[0].data() : null, jd = r[1].exists ? r[1].data() : null;
+      fotos = r[2] || {};
       menu = ((md && md.items) || []).filter(function (x) { return x && x.nama; }).map(function (x) { return { id: String(x.id), nama: String(x.nama), harga: Math.max(0, Number(x.harga) || 0), kat: String(x.kat || "Lainnya"), opsi: normOpsi(x.opsi) }; });
       mejas = ((jd && jd.list) || []).filter(function (x) { return x && x.nama; }).map(function (x) { return { id: String(x.id), nama: String(x.nama) }; });
       if (!menu.length) { $("#where").textContent = ""; return fail("Menu belum siap. Silakan pesan langsung ke kasir."); }

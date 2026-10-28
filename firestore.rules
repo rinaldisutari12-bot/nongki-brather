@@ -18,6 +18,17 @@ service cloud.firestore {
       allow write: if isKasir();
     }
 
+    // Foto menu (satu dokumen per menu). Semua yang sudah login boleh MELIHAT,
+    // hanya akun kasir yang boleh menambah, mengganti, atau menghapus.
+    match /foto/{menuId} {
+      allow read: if signedIn();
+      allow create, update: if isKasir()
+        && request.resource.data.keys().hasOnly(['d'])
+        && request.resource.data.d is string
+        && request.resource.data.d.size() < 200000;
+      allow delete: if isKasir();
+    }
+
     // Permintaan pesanan dari pelanggan lewat QR.
     match /pesanan/{orderId} {
       allow create: if signedIn()
